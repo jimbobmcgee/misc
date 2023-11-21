@@ -1,7 +1,6 @@
 'use strict';
 
-/// noscriptToSpan
-/// world ISOLATED
+/// noscriptToSpan.js
 function noscriptToSpan() {
     var noscripts = document.querySelectorAll
                   ? document.querySelectorAll('noscript')
