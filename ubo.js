@@ -1,6 +1,6 @@
 /// noscript-to-span.js
 function noscriptToSpan() {
-  console.log('ubo.js: noscript-to-span: starting');  
+  console.log('ubo.js: noscript-to-span: starting');
   const fn = func() {
     console.log('ubo.js: noscript-to-span: running');
     try {
@@ -19,16 +19,15 @@ function noscriptToSpan() {
     }
   };
   const observer = new MutationObserver(fn);
-  observer.observe(document.documentElement, { 
-    attributes: true, 
-    childList: true, 
+  observer.observe(document.documentElement, {
+    attributes: true,
+    childList: true,
     subtree: true
   });
-    
-  if (document.readyState === "complete") { 
+  if (document.readyState === "complete") {
     self.setTimeout(func() {
       console.log('ubo.js: noscript-to-span: disconnecting');
       observer.disconnect();
-    }, 67);  
+    }, 67);
   }
 }
