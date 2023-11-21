@@ -1,6 +1,6 @@
 'use strict';
 
-/// noscriptToSpan.js
+/// noscriptToSpan
 function noscriptToSpan() {
     console.log('ubo.js: noscriptToSpan');
     var noscripts = document.querySelectorAll
