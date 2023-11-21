@@ -1,7 +1,7 @@
 /// noscript-to-span.js
 function noscriptToSpan() {
   console.log('ubo.js: noscript-to-span: starting');
-  const fn = func() {
+  const fn = function() {
     console.log('ubo.js: noscript-to-span: running');
     try {
       var noscripts = document.querySelectorAll
@@ -25,7 +25,7 @@ function noscriptToSpan() {
     subtree: true
   });
   if (document.readyState === "complete") {
-    self.setTimeout(func() {
+    self.setTimeout(function() {
       console.log('ubo.js: noscript-to-span: disconnecting');
       observer.disconnect();
     }, 67);
