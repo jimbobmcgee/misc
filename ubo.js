@@ -2,6 +2,7 @@
 
 /// noscriptToSpan.js
 function noscriptToSpan() {
+    console.log('ubo.js: noscriptToSpan');
     var noscripts = document.querySelectorAll
                   ? document.querySelectorAll('noscript')
                   : document.getElementsByTagName('noscript');
