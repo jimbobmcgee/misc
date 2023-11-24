@@ -7,7 +7,6 @@ function reinjectNoscriptElementContent() {
       var noscripts = document.getElementsByTagName('noscript');
       for (var i = 0, ilen = noscripts.length; i < ilen; i++) {
         var s = document.createDocumentFragment();
-        s.classList.add('ubo-was-noscript');
         s.innerHTML = noscripts[i].innerText;
         noscripts[i].parentNode.replaceChild(s, noscripts[i]);
       }
