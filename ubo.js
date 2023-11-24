@@ -6,9 +6,11 @@ function reinjectNoscriptElementContent() {
     try {
       var noscripts = document.getElementsByTagName('noscript');
       for (var i = 0, ilen = noscripts.length; i < ilen; i++) {
-        var s = document.createDocumentFragment();
-        s.innerHTML = noscripts[i].innerText;
-        noscripts[i].parentNode.replaceChild(s, noscripts[i]);
+        var tpl = document.createElement('template');
+        tpl.innerHTML = noscripts[i].innerText;
+        tpl.prepend(document.createComment("ubo.js: reinject-noscript start"));
+        tpl.append(document.createComment("ubo.js: reinject-noscript end"));
+        noscripts[i].parentNode.replaceChild(tpl.content, noscripts[i]);
       }
     }
     catch (e) {
