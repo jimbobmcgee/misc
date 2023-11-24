@@ -7,9 +7,9 @@
       var noscripts = document.getElementsByTagName('noscript');
       for (var i = 0, ilen = noscripts.length; i < ilen; i++) {
         var tpl = document.createElement('template');
-        tpl.innerHTML = noscripts[i].innerText;
-        tpl.prepend(document.createComment("ubo.js: reinject-noscript start"));
-        tpl.append(document.createComment("ubo.js: reinject-noscript end"));
+        tpl.innerHTML = "<!-- ubo.js: reinject-noscript: start -->\n"
+                      + noscripts[i].innerText
+                      + "\n<!-- ubo.js: reinject-noscript: end -->";
         noscripts[i].parentNode.replaceChild(tpl.content, noscripts[i]);
       }
     }
