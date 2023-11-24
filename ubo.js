@@ -1,4 +1,4 @@
 /// reinject-noscript.js
-function reinjectNoscriptElementContent() {
+(function reinjectNoscriptElementContent() {
   console.log('ubo.js: reinject-noscript: init');
-}
+})()
