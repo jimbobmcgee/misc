@@ -4,7 +4,7 @@
   const fn = function() {
     console.log('ubo.js: reinject-noscript: running');
     try {
-      var noscripts = document.getElementsByTagName('noscript');
+      var noscripts = document.getElementsByTagName('noscript') || [];
       for (var i = 0, ilen = noscripts.length; i < ilen; i++) {
         var tpl = document.createElement('template');
         tpl.innerHTML = "<!-- ubo.js: reinject-noscript: start -->\n"
