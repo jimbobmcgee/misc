@@ -5,8 +5,8 @@
     console.log('ubo.js: reinject-noscript: running');
     try {
       var noscripts = document.getElementsByTagName('noscript') || [];
-      for (var i = 0, ilen = noscripts.length; i < ilen; i++) {
-        if (noscripts[i] !== undefined && noscripts[i] !== null {
+      for (var i = noscripts.length - 1; i >= 0; i--) {
+        if (noscripts[i] !== undefined && noscripts[i] !== null) {
           var tpl = document.createElement('template');
           tpl.innerHTML = "<!-- ubo.js: reinject-noscript: start -->\n"
                         + noscripts[i].innerText
