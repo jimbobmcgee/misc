@@ -17,7 +17,6 @@
 
           var tpl = document.createElement('template');
           tpl.innerHTML = "<!-- ubo.js: reinject-noscript: start -->\n"
-                        + refreshes.map(r => "<!-- ubo.js: suppress-refresh: " + r.replace('--', '%2D%2D') + " -->\n").join("")
                         + noscripts[i].innerText
                         + "\n<!-- ubo.js: reinject-noscript: end -->";
           
