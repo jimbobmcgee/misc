@@ -1,6 +1,6 @@
 /// reinject-noscript.js
 (function reinjectNoscriptElementContent() {
-  console.log('ubo.js: reinject-noscript: init');
+  console.log('ubo.js: reinject-noscript: init (v=3)');
   const fn = function() {
     console.log('ubo.js: reinject-noscript: running');
     try {
