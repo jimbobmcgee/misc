@@ -1,8 +1,5 @@
 /// reinject-noscript.js
 (function reinjectNoscriptElementContent() {
   window.alert('ubo.js outer');
-  console.log('ubo.js: reinject-noscript: init (v=3.2)');
-
-  
   window.alert('ubo.js outer 2');
 })();
