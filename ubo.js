@@ -22,8 +22,7 @@
                                   + " -->\n";
                           }).join("")
                         + noscripts[i].innerText
-                        + "\n<!-- ubo.js: reinject-noscript: end -->";
-          
+                        + "\n<!-- ubo.js: reinject-noscript: end -->";          
           noscripts[i].parentNode.replaceChild(tpl.content, noscripts[i]);
         }
         else {
