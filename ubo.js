@@ -4,7 +4,7 @@
   
   const fn = function() {
     console.log('ubo.js: reinject-noscript: running');
-
+    window.alert('ubo.js');
   };
   
   if (document.readyState !== "complete") {
