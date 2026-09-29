@@ -15,7 +15,7 @@
           var metas = tpl.content.querySelectorAll("meta[http-equiv=refresh]");
           for (var j = metas.length - 1; j >= 0; j--) {
             console.log('ubo.js: reinject-noscript: suppressing refresh: ' + metas[j].content);
-            var suppressed = document.createComment("ubo.js: suppress-refresh: " + meta[j].content);
+            var suppressed = document.createComment("ubo.js: suppress-refresh: " + metas[j].content);
             metas[j].replaceWith(suppressed);
           }
 
