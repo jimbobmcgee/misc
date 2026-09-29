@@ -1,6 +1,6 @@
 /// reinject-noscript.js
 (function reinjectNoscriptElementContent() {
-  console.log('ubo.js: reinject-noscript: init v4.1');
+  console.log('ubo.js: reinject-noscript: init v4.2');
   const fn = function() {
     console.log('ubo.js: reinject-noscript: running');
     try {
@@ -12,7 +12,7 @@
                         + noscripts[i].innerText
                         + "\n<!-- ubo.js: reinject-noscript: end -->";
 
-          var metas = tpl.querySelectorAll("meta[http-equiv=refresh]");
+          var metas = tpl.content.querySelectorAll("meta[http-equiv=refresh]");
           for (var j = metas.length - 1; j >= 0; j--) {
             console.log('ubo.js: reinject-noscript: suppressing refresh: ' + metas[j].content);
             var suppressed = document.createComment("ubo.js: suppress-refresh: " + meta[j].content);
