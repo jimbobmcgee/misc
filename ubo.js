@@ -11,14 +11,12 @@
           tpl.innerHTML = "<!-- ubo.js: reinject-noscript: start -->\n"
                         + noscripts[i].innerText
                         + "\n<!-- ubo.js: reinject-noscript: end -->";
-
           var metas = tpl.content.querySelectorAll("meta[http-equiv=refresh]");
           for (var j = metas.length - 1; j >= 0; j--) {
             console.log('ubo.js: reinject-noscript: suppressing refresh: ' + metas[j].content);
             var suppressed = document.createComment("ubo.js: suppress-refresh: " + metas[j].content);
             metas[j].replaceWith(suppressed);
           }
-
           noscripts[i].parentNode.replaceChild(tpl.content, noscripts[i]);
         }
         else {
