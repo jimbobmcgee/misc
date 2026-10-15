@@ -48,6 +48,43 @@ var notifyNames = map[uint16]string{
 	0x0034: "SITUATION_NOT_SUPPORTED",
 }
 
+// Common transform ID/name mappings (ENCR/PRF/INTEG/DH). Curated subset.
+var encrNames = map[uint16]string{
+	12: "AES_CBC_128",
+	13: "AES_CBC_192",
+	14: "AES_CBC_256",
+	18: "AES_GCM_16_128", // common GCM entry (vendor dependent)
+	24: "CHACHA20_POLY1305", // vendor-assigned sometimes
+}
+var prfNames = map[uint16]string{
+	2:  "PRF_HMAC_MD5",    // historic
+	3:  "PRF_HMAC_SHA1",
+	4:  "PRF_HMAC_TIGER",
+	5:  "PRF_AES128_CMAC",
+	6:  "PRF_HMAC_SHA2_256",
+	7:  "PRF_HMAC_SHA2_384",
+	8:  "PRF_HMAC_SHA2_512",
+}
+var integNames = map[uint16]string{
+	1:  "AUTH_NONE",
+	2:  "AUTH_HMAC_MD5_96",
+	3:  "AUTH_HMAC_SHA1_96",
+	12: "AUTH_HMAC_SHA2_256_128",
+	13: "AUTH_HMAC_SHA2_384_192",
+	14: "AUTH_HMAC_SHA2_512_256",
+}
+var dhNames = map[uint16]string{
+	1:  "MODP_768",
+	2:  "MODP_1024",
+	5:  "MODP_1536",
+	14: "MODP_2048",
+	15: "MODP_3072",
+	16: "MODP_4096",
+	19: "ECP_256",
+	20: "ECP_384",
+	21: "ECP_521",
+}
+
 func ianaNotifyName(code uint16) string {
 	if n, ok := notifyNames[code]; ok {
 		return n
@@ -388,6 +425,43 @@ func resyncSelectors(b []byte, regionOff, regionLen int) [][]Sel {
 }
 
 // SA / Proposal / Transform parsing (best-effort)
+func transformTypeName(ttype uint8) string {
+	switch ttype {
+	case 1:
+		return "ENCR"
+	case 2:
+		return "PRF"
+	case 3:
+		return "INTEG"
+	case 4:
+		return "DH"
+	default:
+		return fmt.Sprintf("TYPE_0x%02X", ttype)
+	}
+}
+
+func transformIDName(ttype uint8, tid uint16) string {
+	switch ttype {
+	case 1:
+		if n, ok := encrNames[tid]; ok {
+			return n
+		}
+	case 2:
+		if n, ok := prfNames[tid]; ok {
+			return n
+		}
+	case 3:
+		if n, ok := integNames[tid]; ok {
+			return n
+		}
+	case 4:
+		if n, ok := dhNames[tid]; ok {
+			return n
+		}
+	}
+	return ""
+}
+
 func parseSA(b []byte, off, plen int) {
 	if plen < 4 || off+4 > len(b) {
 		fmt.Printf("  SA payload too short or truncated\n")
@@ -430,7 +504,14 @@ func parseSA(b []byte, off, plen int) {
 				fmt.Printf("      transform[%d] at %d has invalid length %d (needs >=6 and <=%d)\n", t, cursor, tlen, end-cursor)
 				return
 			}
-			fmt.Printf("      Transform[%d] @%d: Len=%d Type=0x%02X ID=0x%04X\n", t, cursor, tlen, ttype, tid)
+			// Print with mapping
+			ttName := transformTypeName(ttype)
+			tidName := transformIDName(ttype, tid)
+			if tidName != "" {
+				fmt.Printf("      Transform[%d] @%d: Len=%d Type=%s(0x%02X) ID=0x%04X (%s)\n", t, cursor, tlen, ttName, ttype, tid, tidName)
+			} else {
+				fmt.Printf("      Transform[%d] @%d: Len=%d Type=%s(0x%02X) ID=0x%04X\n", t, cursor, tlen, ttName, ttype, tid)
+			}
 			attrOff := cursor + 6
 			attrLen := tlen - 6
 			if attrLen > 0 {
