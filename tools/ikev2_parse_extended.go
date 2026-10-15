@@ -165,6 +165,45 @@ func printIKEHeader(b []byte) int {
 	return 28
 }
 
+// Helpers to detect and format addresses found inside NOTIFY data
+func extractIPv4List(data []byte) []string {
+	var out []string
+	// If length is multiple of 4 and reasonable (4,8,12,16...), interpret 4-byte chunks as IPv4
+	if len(data) >= 4 {
+		if len(data)%4 == 0 {
+			for i := 0; i+4 <= len(data); i += 4 {
+				ip := be32(data, i)
+				out = append(out, ipv4String(ip))
+			}
+		} else {
+			// also try sliding window for the common case where data is 8 bytes and contains two IPv4 addresses maybe preceded by a proto/port
+			for i := 0; i+4 <= len(data); i += 1 {
+				ip := be32(data, i)
+				out = append(out, ipv4String(ip))
+			}
+		}
+	}
+	return out
+}
+
+func isPrivateIPv4(ip uint32) bool {
+	b1 := byte(ip >> 24)
+	b2 := byte(ip >> 16)
+	// 10.0.0.0/8
+	if b1 == 10 {
+		return true
+	}
+	// 172.16.0.0/12
+	if b1 == 172 && b2 >= 16 && b2 <= 31 {
+		return true
+	}
+	// 192.168.0.0/16
+	if b1 == 192 && b2 == 168 {
+		return true
+	}
+	return false
+}
+
 // NOTIFY
 func parseNotify(b []byte, off, plen int) {
 	if plen < 4 || off+4 > len(b) {
@@ -189,7 +228,36 @@ func parseNotify(b []byte, off, plen int) {
 		dataOff += int(spiSize)
 	}
 	if dataOff < off+plen {
-		fmt.Printf("    Notification Data (%d bytes): 0x%s\n", off+plen-dataOff, strings.ToUpper(hex.EncodeToString(b[dataOff:off+plen])))
+		ndata := b[dataOff:off+plen]
+		fmt.Printf("    Notification Data (%d bytes): 0x%s\n", len(ndata), strings.ToUpper(hex.EncodeToString(ndata)))
+		// Heuristic: look for IPv4/IPv6 addresses in the notification data and highlight them as possible NAT mappings
+		// IPv4: if data length is a multiple of 4, treat each 4-byte chunk as an IPv4 address
+		ipv4s := extractIPv4List(ndata)
+		if len(ipv4s) > 0 {
+			fmt.Printf("    Possible IPv4 addresses in notify data (%d):\n", len(ipv4s))
+			for i, s := range ipv4s {
+				// compute private/public hint
+				ipnum := be32(ndata, i*4)
+				priv := ""
+				if isPrivateIPv4(ipnum) {
+					priv = " (private)"
+				}
+				fmt.Printf("      - %s%s\n", s, priv)
+			}
+			// if exact duplicate addresses present, highlight
+			if len(ipv4s) >= 2 && ipv4s[0] == ipv4s[len(ipv4s)-1] {
+				fmt.Printf("    Note: first and last IPv4 addresses are identical (%s) — common in NAT-D notifications\n", ipv4s[0])
+			}
+		}
+		// IPv6: if data length divisible by 16, extract 16-byte chunks
+		if len(ndata)%16 == 0 && len(ndata) >= 16 {
+			cnt := len(ndata) / 16
+			fmt.Printf("    Possible IPv6 addresses in notify data (%d):\n", cnt)
+			for i := 0; i < cnt; i++ {
+				addr := ndata[i*16 : i*16+16]
+				fmt.Printf("      - %s\n", ipv6String(addr))
+			}
+		}
 	}
 }
 
@@ -549,8 +617,8 @@ func parseSA(b []byte, off, plen int) {
 			cursor += tlen
 		}
 		// Continue to next proposal, if any
+		}
 	}
-}
 
 // Top-level payload walker
 func parsePayloads(b []byte, start int, doResync bool) {
