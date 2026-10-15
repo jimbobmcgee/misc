@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"regexp"
 	"strings"
@@ -84,6 +85,10 @@ var dhNames = map[uint16]string{
 	20: "ECP_384",
 	21: "ECP_521",
 }
+
+// user-specified match lists (populated from -match flag)
+var matchCIDRs []*net.IPNet
+var matchIPs []net.IP
 
 func ianaNotifyName(code uint16) string {
 	if n, ok := notifyNames[code]; ok {
@@ -166,20 +171,20 @@ func printIKEHeader(b []byte) int {
 }
 
 // Helpers to detect and format addresses found inside NOTIFY data
-func extractIPv4List(data []byte) []string {
-	var out []string
+func extractIPv4List(data []byte) []uint32 {
+	var out []uint32
 	// If length is multiple of 4 and reasonable (4,8,12,16...), interpret 4-byte chunks as IPv4
 	if len(data) >= 4 {
 		if len(data)%4 == 0 {
 			for i := 0; i+4 <= len(data); i += 4 {
 				ip := be32(data, i)
-				out = append(out, ipv4String(ip))
+				out = append(out, ip)
 			}
 		} else {
-			// also try sliding window for the common case where data is 8 bytes and contains two IPv4 addresses maybe preceded by a proto/port
+			// also try sliding window for cases where addresses may be embedded
 			for i := 0; i+4 <= len(data); i += 1 {
 				ip := be32(data, i)
-				out = append(out, ipv4String(ip))
+				out = append(out, ip)
 			}
 		}
 	}
@@ -200,6 +205,27 @@ func isPrivateIPv4(ip uint32) bool {
 	// 192.168.0.0/16
 	if b1 == 192 && b2 == 168 {
 		return true
+	}
+	return false
+}
+
+func ipFromUint32(ip uint32) net.IP {
+	return net.IPv4(byte(ip>>24), byte(ip>>16), byte(ip>>8), byte(ip)).To4()
+}
+
+func matchIP(ip net.IP) bool {
+	if ip == nil {
+		return false
+	}
+	for _, m := range matchCIDRs {
+		if m.Contains(ip) {
+			return true
+		}
+	}
+	for _, p := range matchIPs {
+		if p.Equal(ip) {
+			return true
+		}
 	}
 	return false
 }
@@ -235,18 +261,24 @@ func parseNotify(b []byte, off, plen int) {
 		ipv4s := extractIPv4List(ndata)
 		if len(ipv4s) > 0 {
 			fmt.Printf("    Possible IPv4 addresses in notify data (%d):\n", len(ipv4s))
-			for i, s := range ipv4s {
-				// compute private/public hint
-				ipnum := be32(ndata, i*4)
+			for i, ipnum := range ipv4s {
+				ipstr := ipv4String(ipnum)
+				ip := ipFromUint32(ipnum)
 				priv := ""
 				if isPrivateIPv4(ipnum) {
 					priv = " (private)"
 				}
-				fmt.Printf("      - %s%s\n", s, priv)
+				match := ""
+				if matchIP(ip) {
+					match = " [MATCH]"
+				}
+				fmt.Printf("      - %s%s%s\n", ipstr, priv, match)
+				// if not multiple-of-4 length, avoid indexing beyond
+				_ = i
 			}
 			// if exact duplicate addresses present, highlight
 			if len(ipv4s) >= 2 && ipv4s[0] == ipv4s[len(ipv4s)-1] {
-				fmt.Printf("    Note: first and last IPv4 addresses are identical (%s) — common in NAT-D notifications\n", ipv4s[0])
+				fmt.Printf("    Note: first and last IPv4 addresses are identical (%s) — common in NAT-D notifications\n", ipv4String(ipv4s[0]))
 			}
 		}
 		// IPv6: if data length divisible by 16, extract 16-byte chunks
@@ -255,7 +287,12 @@ func parseNotify(b []byte, off, plen int) {
 			fmt.Printf("    Possible IPv6 addresses in notify data (%d):\n", cnt)
 			for i := 0; i < cnt; i++ {
 				addr := ndata[i*16 : i*16+16]
-				fmt.Printf("      - %s\n", ipv6String(addr))
+				nip := net.IP(addr)
+				match := ""
+				if matchIP(nip) {
+					match = " [MATCH]"
+				}
+				fmt.Printf("      - %s%s\n", ipv6String(addr), match)
 			}
 		}
 	}
@@ -347,15 +384,32 @@ func parseTS(b []byte, off, plen int, doResync bool) {
 			for i, seq := range candidates {
 				fmt.Printf("   Candidate %d:\n", i+1)
 				for j, s := range seq {
-					fmt.Printf("    sel[%d] offset=%d Type=0x%02X Proto=%d Len=%d ", j, s.Off, s.Type, s.Proto, s.Len)
+					matchTag := ""
 					if s.IsIPv4 {
-						fmt.Printf("IPv4 %s -> %s\n", s.Src, s.Dst)
+						ip := net.ParseIP(s.Src)
+						if matchIP(ip) {
+							matchTag = " [MATCH]"
+						}
+					}
+					fmt.Printf("    sel[%d] offset=%d Type=0x%02X Proto=%d Len=%d", j, s.Off, s.Type, s.Proto, s.Len)
+					if s.IsIPv4 {
+						fmt.Printf(" IPv4 %s -> %s%s\n", s.Src, s.Dst, matchTag)
 					} else if s.IsIPv4Ports {
-						fmt.Printf("IPv4 Ports %d-%d %s -> %s\n", s.SPort, s.EPort, s.Src, s.Dst)
+						ip := net.ParseIP(s.Src)
+						m := ""
+						if matchIP(ip) {
+							m = " [MATCH]"
+						}
+						fmt.Printf(" IPv4 Ports %d-%d %s -> %s%s\n", s.SPort, s.EPort, s.Src, s.Dst, m)
 					} else if s.IsIPv6 {
-						fmt.Printf("IPv6 raw: 0x%s\n", s.Raw)
+						nip := net.ParseIP(s.Raw)
+						m := ""
+						if matchIP(nip) {
+							m = " [MATCH]"
+						}
+						fmt.Printf(" IPv6 raw: 0x%s%s\n", s.Raw, m)
 					} else {
-						fmt.Printf("raw: 0x%s\n", s.Raw)
+						fmt.Printf(" raw: 0x%s\n", s.Raw)
 					}
 				}
 			}
@@ -398,8 +452,12 @@ func tryParseSelectors(b []byte, regionOff, regionLen int, print bool) bool {
 			if bodyOff+8 <= len(b) {
 				sa := be32(b, bodyOff)
 				ea := be32(b, bodyOff+4)
+				matchTag := ""
+				if matchIP(ipFromUint32(sa)) || matchIP(ipFromUint32(ea)) {
+					matchTag = " [MATCH]"
+				}
 				if print {
-					fmt.Printf("    selector[%d] @%d: Type=0x%02X Proto=%d Len=%d IPv4: %s -> %s\n", selIndex, cursor, tstype, proto, slen, ipv4String(sa), ipv4String(ea))
+					fmt.Printf("    selector[%d] @%d: Type=0x%02X Proto=%d Len=%d IPv4: %s -> %s%s\n", selIndex, cursor, tstype, proto, slen, ipv4String(sa), ipv4String(ea), matchTag)
 				}
 			} else {
 				if print {
@@ -413,8 +471,12 @@ func tryParseSelectors(b []byte, regionOff, regionLen int, print bool) bool {
 				ep := be16(b, bodyOff+2)
 				sa := be32(b, bodyOff+4)
 				ea := be32(b, bodyOff+8)
+				matchTag := ""
+				if matchIP(ipFromUint32(sa)) || matchIP(ipFromUint32(ea)) {
+					matchTag = " [MATCH]"
+				}
 				if print {
-					fmt.Printf("    selector[%d] @%d: Type=0x%02X Proto=%d Len=%d IPv4 Ports: %d-%d Addr: %s -> %s\n", selIndex, cursor, tstype, proto, slen, sp, ep, ipv4String(sa), ipv4String(ea))
+					fmt.Printf("    selector[%d] @%d: Type=0x%02X Proto=%d Len=%d IPv4 Ports: %d-%d Addr: %s -> %s%s\n", selIndex, cursor, tstype, proto, slen, sp, ep, ipv4String(sa), ipv4String(ea), matchTag)
 				}
 			} else {
 				if print {
@@ -674,11 +736,37 @@ func parsePayloads(b []byte, start int, doResync bool) {
 
 func main() {
 	resyncFlag := flag.Bool("resync", false, "run exhaustive TS resync attempts when TS payload parse ambiguous")
+	matchFlag := flag.String("match", "", "comma-separated list of IPs or CIDRs to highlight (e.g. 10.0.0.1,192.168.0.0/16,2001:db8::/32)")
 	flag.Parse()
 	if flag.NArg() < 1 {
-		fmt.Fprintf(os.Stderr, "Usage: %s [-resync] <hexstring>\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s [-resync] [-match ip1,net2,...] <hexstring>\n", os.Args[0])
 		os.Exit(1)
 	}
+	// parse match list
+	if *matchFlag != "" {
+		parts := strings.Split(*matchFlag, ",")
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if p == "" {
+				continue
+			}
+			if strings.Contains(p, "/") {
+				if _, netw, err := net.ParseCIDR(p); err == nil {
+					matchCIDRs = append(matchCIDRs, netw)
+				} else {
+					fmt.Fprintf(os.Stderr, "warning: couldn't parse CIDR '%s': %v\n", p, err)
+				}
+			} else {
+				ip := net.ParseIP(p)
+				if ip != nil {
+					matchIPs = append(matchIPs, ip)
+				} else {
+					fmt.Fprintf(os.Stderr, "warning: couldn't parse IP '%s'\n", p)
+				}
+			}
+		}
+	}
+
 	in := strings.Join(flag.Args(), "")
 	b := mustDecodeHex(in)
 	start := 0
