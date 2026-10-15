@@ -1,3 +1,56 @@
+/*
+ * ikev2_parse_extended.go
+ *
+ * Copyright (c) 2026 jimbobmcgee
+ * SPDX-License-Identifier: MIT
+ *
+ * Attribution and license requirements
+ * ----------------------------------
+ * - This file is provided under the MIT License. Redistribution and use in source and binary
+ *   forms, with or without modification, are permitted provided that the above copyright
+ *   notice and this permission notice are retained.
+ * - Human-readable algorithm/notify names are derived from public IANA registries and RFC
+ *   documents (for example, IKEv2 / IPsec registries and RFC 7296). Those registries remain
+ *   the authoritative sources; this file contains a curated subset for convenience only.
+ * - No network queries or external downloads are performed by this tool at runtime.
+ *
+ * Development/context block (for future resume)
+ * ---------------------------------------------
+ * - Last modified (commit): 1b622a9d60b5a9f2f7c39d15fa781381f8d120dc (2026-10-15 UTC)
+ * - Purpose: small, best-effort IKEv2 payload inspector. Features added in this branch:
+ *     * Transform ID -> name mappings for ENCR/PRF/INTEG/DH (encrNames/prfNames/integNames/dhNames)
+ *     * Richer SA transform attribute printing (heuristic TV/TLV parsing)
+ *     * NOTIFY payload scanning with heuristics to extract possible IPv4/IPv6 addresses
+ *     * NAT-T / NAT-D heuristics: duplicate address detection and private-range hints
+ *     * Traffic Selector (TSi/TSr) deterministic parse + resync heuristics
+ *     * Optional -match flag to highlight user-provided IPs/CIDRs in output
+ *     * -resync flag to attempt exhaustive TS resynchronization when ambiguous
+ *
+ * - Build / run
+ *     go build ./tools/ikev2_parse_extended.go
+ *     ./ikev2_parse_extended [-resync] [-match "ip1,net2,..."] <hexstring>
+ *
+ * - Heuristics and limitations
+ *     * All parsing is best-effort; many vendor-specific NOTIFY formats exist (Checkpoint,
+ *       FortiGate, Cisco); vendor-specific parsers are not included and may be added.
+ *     * IPv4 extraction from NOTIFY data treats 4-byte aligned chunks as addresses when
+ *       length%4 == 0, otherwise it runs a sliding-window scan (may produce false positives).
+ *     * IPv6 detection requires data length divisible by 16 to be treated as a sequence of
+ *       IPv6 addresses; this is conservative to avoid false positives.
+ *     * Selector parsing assumes specific IKEv2 TSi/TSr formats (12/16/28/32 lengths) and
+ *       will attempt resync on ambiguous regions.
+ *
+ * - Development notes for next work
+ *     * Add strict vendor NOTIFY parsers (if you can provide representative hex samples)
+ *     * Expand transform name tables to include full IANA registries or provide an optional
+ *       JSON/YAML table for user extensions.
+ *     * Add unit tests and corpus sample files (pcap/hex) under tools/testdata/ and a
+ *       small test runner that validates outputs for known inputs.
+ *     * Add JSON output mode for automation (machine-readable findings and matches).
+ *
+ * - Contact/history: jimbobmcgee (github.com/jimbobmcgee)
+ */
+
 package main
 
 import (
